@@ -1,4 +1,8 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
+
+import 'completion_celebration.dart';
 
 import '../models/todo.dart'; // 作成したTodoクラス
 import '../services/todo_service.dart'; // データ保存サービス
@@ -16,6 +20,9 @@ class TodoList extends StatefulWidget {
 class TodoListState extends State<TodoList> {
   List<Todo> _todos = [];
   bool _isLoading = true;
+  final _random = Random();
+  String? _completionMessage;
+  int _celebrationId = 0;
 
   @override
   void initState() {
@@ -42,6 +49,11 @@ class TodoListState extends State<TodoList> {
   // チェックボタンから呼ばれる完了状態切り替え関数を追加
   Future<void> _toggleTodo(Todo todo) async {
     setState(() {
+      if (!todo.isCompleted) {
+        _completionMessage =
+            completionMessages[_random.nextInt(completionMessages.length)];
+        _celebrationId++;
+      }
       _todos = _todos.map((t) {
         if (t.id == todo.id) {
           return t.copyWith(isCompleted: !t.isCompleted);
@@ -61,18 +73,32 @@ class TodoListState extends State<TodoList> {
 
     final visibleTodos = _todos.where((todo) => !todo.isCompleted).toList();
 
-    return ListView.builder(
-      itemCount: visibleTodos.length,
-      itemBuilder: (context, index) {
-        final todo = visibleTodos[index]; // ←追加
-        return Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: TodoCard(
-            todo: todo,
-            onToggle: () => _toggleTodo(todo), // 完了状態を切り替える処理を追加
+    return Stack(
+      children: [
+        ListView.builder(
+          itemCount: visibleTodos.length,
+          itemBuilder: (context, index) {
+            final todo = visibleTodos[index]; // ←追加
+            return Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: TodoCard(
+                todo: todo,
+                onToggle: () => _toggleTodo(todo), // 完了状態を切り替える処理を追加
+              ),
+            );
+          },
+        ),
+        if (_completionMessage != null)
+          Positioned.fill(
+            child: CompletionCelebration(
+              key: ValueKey(_celebrationId),
+              message: _completionMessage!,
+              onFinished: () {
+                if (mounted) setState(() => _completionMessage = null);
+              },
+            ),
           ),
-        );
-      },
+      ],
     );
   }
 }

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:todo_app/main.dart';
 import 'package:todo_app/models/todo.dart';
 import 'package:todo_app/services/todo_service.dart';
+import 'package:todo_app/widgets/completion_celebration.dart';
 
 void main() {
   setUp(() async {
@@ -38,7 +39,24 @@ void main() {
     await tester.pumpWidget(MyApp(todoService: service));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.radio_button_unchecked));
+    await tester.pump();
+    expect(find.byType(CompletionCelebration), findsOneWidget);
+    final celebration = tester.widget<CompletionCelebration>(
+      find.byType(CompletionCelebration),
+    );
+    expect(completionMessages, contains(celebration.message));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('🎉 ${celebration.message}'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 1000));
+    final opacity = tester.widget<Opacity>(
+      find.descendant(
+        of: find.byType(CompletionCelebration),
+        matching: find.byType(Opacity),
+      ),
+    );
+    expect(opacity.opacity, inExclusiveRange(0.0, 1.0));
     await tester.pumpAndSettle();
+    expect(find.byType(CompletionCelebration), findsNothing);
     expect(find.text('買い物'), findsNothing);
     expect(find.byIcon(Icons.check_circle), findsNothing);
     expect((await TodoService(prefs).getTodos()).single.isCompleted, isTrue);
