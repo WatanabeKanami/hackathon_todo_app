@@ -2,6 +2,12 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+const rewardCompletionMessages = [
+  'かな、最後まで本当によく頑張ったね！\n今日は自分をたっぷり甘やかそう 💗',
+  'その一歩、ちゃんと見ていたよ。\n頑張ったかなに、大きな拍手！ 🌷',
+  'お疲れさま、かな！すてきな達成だね。\nひと息ついて、ごほうびを楽しもう 🍵',
+];
+
 const completionMessages = [
   'お疲れさま！よく頑張ったね！',
   'やり切ったの、えらすぎる！！',
@@ -20,9 +26,11 @@ class CompletionCelebration extends StatefulWidget {
     super.key,
     required this.message,
     required this.onFinished,
+    this.isReward = false,
   });
 
   final String message;
+  final bool isReward;
   final VoidCallback onFinished;
 
   @override
@@ -39,7 +47,7 @@ class _CompletionCelebrationState extends State<CompletionCelebration>
     _controller =
         AnimationController(
           vsync: this,
-          duration: const Duration(milliseconds: 1800),
+          duration: Duration(milliseconds: widget.isReward ? 3200 : 1800),
         )..addStatusListener((status) {
           if (status == AnimationStatus.completed) widget.onFinished();
         });
@@ -83,7 +91,9 @@ class _CompletionCelebrationState extends State<CompletionCelebration>
                           vertical: 20,
                         ),
                         child: Text(
-                          '🎉 ${widget.message}',
+                          widget.isReward
+                              ? '🎁 ${widget.message}\n\n🌟 がんばりました！'
+                              : '🎉 ${widget.message}',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 24,

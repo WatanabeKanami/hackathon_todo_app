@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Todo Web (保存用・通常のChromeで開く)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "deviceId": "web-server",
+      "toolArgs": ["--web-hostname", "localhost", "--web-port", "8080"]
+    }
+  ]
+}

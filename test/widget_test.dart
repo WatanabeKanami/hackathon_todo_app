@@ -28,6 +28,61 @@ void main() {
     expect(await TodoService(prefs).getTodos(), isEmpty);
   });
 
+  testWidgets('Japanese date picker and added task survive reopening', (
+    tester,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    tester.view.physicalSize = const Size(800, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(MyApp(todoService: TodoService(prefs)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+    final fields = find.byType(TextFormField);
+    await tester.enterText(fields.at(0), '保存テスト');
+    await tester.enterText(fields.at(1), '再起動後も残る');
+    await tester.tap(fields.at(2));
+    await tester.pumpAndSettle();
+
+    final pickerContext = tester.element(find.byType(DatePickerDialog));
+    expect(Localizations.localeOf(pickerContext), const Locale('ja', 'JP'));
+    expect(find.text('キャンセル'), findsOneWidget);
+    expect(find.text('OK'), findsOneWidget);
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.widgetWithText(ElevatedButton, 'タスクを追加'),
+      250,
+      scrollable: find
+          .descendant(
+            of: find.byType(ListView).last,
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.tap(find.widgetWithText(ElevatedButton, 'タスクを追加'));
+    await tester.pumpAndSettle();
+    expect(find.text('保存テスト'), findsOneWidget);
+    final saved = (await TodoService(prefs).getTodos()).single;
+    expect(saved.detail, '再起動後も残る');
+    expect(saved.isCompleted, isFalse);
+
+    await tester.pumpWidget(const SizedBox());
+    tester.view.physicalSize = const Size(800, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(MyApp(todoService: TodoService(prefs)));
+    await tester.pumpAndSettle();
+    expect(find.text('保存テスト'), findsOneWidget);
+    expect(
+      (await TodoService(prefs).getTodos()).single.toJson(),
+      saved.toJson(),
+    );
+  });
+
   testWidgets('Completed tasks stay saved and hidden after reopening', (
     tester,
   ) async {
@@ -38,6 +93,10 @@ void main() {
     ]);
     await tester.pumpWidget(MyApp(todoService: service));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byIcon(Icons.radio_button_unchecked),
+      200,
+    );
     await tester.tap(find.byIcon(Icons.radio_button_unchecked));
     await tester.pump();
     expect(find.byType(CompletionCelebration), findsOneWidget);
@@ -62,6 +121,10 @@ void main() {
     expect((await TodoService(prefs).getTodos()).single.isCompleted, isTrue);
 
     await tester.pumpWidget(const SizedBox());
+    tester.view.physicalSize = const Size(800, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(MyApp(todoService: TodoService(prefs)));
     await tester.pumpAndSettle();
     expect(find.text('買い物'), findsNothing);

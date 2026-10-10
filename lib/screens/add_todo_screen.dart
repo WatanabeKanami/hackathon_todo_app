@@ -1,205 +1,227 @@
 import 'package:flutter/material.dart';
 
 import '../models/todo.dart';
+import '../models/task_attributes.dart';
 import '../services/todo_service.dart';
 
 class AddTodoScreen extends StatefulWidget {
-  const AddTodoScreen({
-    super.key,
-    required this.todoService,
-  });
-
+  const AddTodoScreen({super.key, required this.todoService, this.todo});
   final TodoService todoService;
-
+  final Todo? todo;
   @override
-  AddTodoScreenState createState() => AddTodoScreenState();
+  State<AddTodoScreen> createState() => AddTodoScreenState();
 }
 
 class AddTodoScreenState extends State<AddTodoScreen> {
-  // 入力内容を管理するコントローラー
-  final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _detailController = TextEditingController();
-  final TextEditingController _dateController =
-      TextEditingController(); // 期日表示用
-
-  DateTime? _selectedDate; // 選択された期日
-
-  // フォームの入力検証用
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-
-  bool _isFormValid = false; // フォーム入力が完了しているか
-
+  final _form = GlobalKey<FormState>();
+  final _title = TextEditingController(),
+      _detail = TextEditingController(),
+      _date = TextEditingController(),
+      _minutes = TextEditingController();
+  final Map<String, String?> _attributes = {};
+  DateTime? _due;
+  bool _reward = false, _saving = false;
   @override
   void initState() {
     super.initState();
-    // テキストと期日の入力が変わるたびにチェック
-    _titleController.addListener(_updateFormValid);
-    _detailController.addListener(_updateFormValid);
-    _dateController.addListener(_updateFormValid);
-  }
-
-  /// 全入力欄が埋まっているかを判定し、
-  /// ボタンの活性状態（押せる/押せない）を更新するメソッド
-  void _updateFormValid() {
-    setState(() {
-      _isFormValid = _titleController.text.isNotEmpty &&
-          _detailController.text.isNotEmpty &&
-          _selectedDate != null; // 期日が選択されているか
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('新しいタスクを追加'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          // 入力フォームの枠組み
-          key: _formKey,
-          child: Column(
-            children: [
-              // タイトル入力フィールド
-              TextFormField(
-                controller: _titleController,
-                decoration: const InputDecoration(
-                  labelText: 'タスクのタイトル',
-                  hintText: '20文字以内で入力してください',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  // 入力チェック
-                  if (value == null || value.isEmpty) {
-                    return 'タイトルを入力してください';
-                  } else if (value.length > 20) {
-                    return '20文字以内で入力してください';
-                  }
-                  return null;
-                },
-              ),
-
-              const SizedBox(height: 16), // 余白
-
-              // 詳細入力フィールド
-              TextFormField(
-                controller: _detailController,
-                decoration: const InputDecoration(
-                  labelText: 'タスクの詳細',
-                  hintText: '入力してください',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 3, // 最大3行まで入力可能
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return '詳細を入力してください';
-                  }
-                  return null;
-                },
-              ),
-
-              const SizedBox(height: 16),
-
-              // 📅 期日入力フィールド（DatePicker）
-              TextFormField(
-                controller: _dateController,
-                readOnly: true, // キーボードを表示しない
-                decoration: const InputDecoration(
-                  labelText: '期日',
-                  hintText: '年/月/日',
-                  border: OutlineInputBorder(),
-                ),
-                onTap: () async {
-                  // 日付選択ダイアログを開く
-                  DateTime? picked = await showDatePicker(
-                    context: context,
-                    initialDate: DateTime.now(),
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime(2100),
-                  );
-                  if (picked != null) {
-                    // 選択した日付をコントローラに反映
-                    _selectedDate = picked;
-                    _dateController.text =
-                        '${picked.year}/${picked.month}/${picked.day}';
-
-                    // 期日を選んだあともフォーム状態を再評価
-                    _updateFormValid();
-                  }
-                },
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return '期日を選択してください';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 24),
-
-              // 作成ボタン
-              ElevatedButton(
-                onPressed: _isFormValid ? _saveTodo : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _isFormValid
-                      ? const Color.fromARGB(255, 0, 0, 255)
-                      : Colors.grey.shade400,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                ), // 入力完了で活性化
-                child: Text(
-                  'タスクを追加',
-                  // テキストの色を変更
-                  style: TextStyle(
-                    color: _isFormValid ? Colors.white : Colors.grey,
-                    fontSize: 18,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // タスク作成処理
-  void _saveTodo() async {
-    if (_formKey.currentState!.validate()) {
-      // 入力チェック
-      // 新しいTodoを作成
-      Todo newTodo = Todo(
-        title: _titleController.text,
-        detail: _detailController.text,
-        dueDate: _selectedDate!,
-      );
-
-      // 既存リストを取得して追加する処理を追加  // ←追加 
-      final todos = await widget.todoService.getTodos();
-      todos.add(newTodo);
-      await widget.todoService.saveTodos(todos);
-
-      // この画面がまだ非表示にならずに残ってるか確認
-      if (!mounted) return;
-
-      // 前の画面へ「更新したよ」とだけ知らせる
-      Navigator.pop(context, true); // ←変更
+    final t = widget.todo;
+    if (t != null) {
+      _title.text = t.title;
+      _detail.text = t.detail;
+      _due = t.dueDate;
+      _date.text = '${t.dueDate.year}/${t.dueDate.month}/${t.dueDate.day}';
+      _minutes.text = t.estimatedMinutes?.toString() ?? '';
+      _reward = t.hasReward;
+      _attributes.addAll({
+        'mood': t.mood,
+        'place': t.place,
+        'timeOfDay': t.timeOfDay,
+        'theme': t.theme,
+        'difficulty': t.difficulty,
+      });
     }
   }
 
   @override
   void dispose() {
-    // 画面が閉じられる時の処理
-    _titleController.dispose(); // メモリの解放
-    _detailController.dispose();
-    _dateController.dispose();
+    for (final c in [_title, _detail, _date, _minutes]) {
+      c.dispose();
+    }
     super.dispose();
   }
 
+  Future<void> _save() async {
+    if (!_form.currentState!.validate()) return;
+    setState(() => _saving = true);
+    try {
+      final t = Todo(
+        id: widget.todo?.id,
+        title: _title.text.trim(),
+        detail: _detail.text.trim(),
+        dueDate: _due!,
+        isCompleted: widget.todo?.isCompleted ?? false,
+        mood: _attributes['mood'],
+        place: _attributes['place'],
+        timeOfDay: _attributes['timeOfDay'],
+        theme: _attributes['theme'],
+        difficulty: _attributes['difficulty'],
+        estimatedMinutes: int.tryParse(_minutes.text),
+        hasReward: _reward,
+      );
+      final todos = await widget.todoService.getTodos();
+      if (widget.todo == null) {
+        todos.add(t);
+      } else {
+        final i = todos.indexWhere((e) => e.id == t.id);
+        if (i < 0) throw StateError('missing');
+        todos[i] = t;
+      }
+      await widget.todoService.saveTodos(todos);
+      if (mounted) Navigator.pop(context, true);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('保存できませんでした。もう一度お試しください')));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // 初期表示時にもバリデーション
-    _updateFormValid();
+  Widget build(BuildContext context) {
+    const labels = {
+      'mood': '☁️ 取り組む気分',
+      'place': '🏝️ 場所',
+      'timeOfDay': '☀️ 時間帯',
+      'theme': '🎨 テーマ',
+      'difficulty': '⭐ がんばり',
+    };
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.todo == null ? '新しいタスクを追加' : 'タスクを編集')),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 640),
+          child: Form(
+            key: _form,
+            child: ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                const Text(
+                  '小さな一歩を、ひとつ。 ✨',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 20),
+                TextFormField(
+                  controller: _title,
+                  decoration: const InputDecoration(labelText: 'タスクのタイトル'),
+                  validator: (v) => v == null || v.trim().isEmpty
+                      ? 'タイトルを入力してください'
+                      : v.trim().length > 20
+                      ? '20文字以内で入力してください'
+                      : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _detail,
+                  maxLines: 3,
+                  decoration: const InputDecoration(labelText: 'タスクの詳細'),
+                  validator: (v) =>
+                      v == null || v.trim().isEmpty ? '詳細を入力してください' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _date,
+                  readOnly: true,
+                  decoration: const InputDecoration(
+                    labelText: '期日',
+                    suffixIcon: Icon(Icons.calendar_today),
+                  ),
+                  validator: (_) => _due == null ? '期日を選択してください' : null,
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _due ?? DateTime.now(),
+                      firstDate: DateTime(1900),
+                      lastDate: DateTime(2100, 12, 31),
+                    );
+                    if (picked != null && mounted) {
+                      setState(() {
+                        _due = picked;
+                        _date.text =
+                            '${picked.year}/${picked.month}/${picked.day}';
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                for (final category in taskOptions.entries) ...[
+                  Text(
+                    labels[category.key]!,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: category.value
+                        .map(
+                          (o) => ChoiceChip(
+                            label: Text(o.label),
+                            selected: _attributes[category.key] == o.id,
+                            selectedColor: Color(o.color),
+                            onSelected: (_) => setState(() {
+                              _attributes[category.key] =
+                                  _attributes[category.key] == o.id
+                                  ? null
+                                  : o.id;
+                            }),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                TextFormField(
+                  controller: _minutes,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: '所要時間（分・任意）',
+                    hintText: '例：5、15、45',
+                  ),
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return null;
+                    final n = int.tryParse(v);
+                    return n == null || n <= 0 ? '1以上の整数を入力してください' : null;
+                  },
+                ),
+                SwitchListTile(
+                  title: const Text('🎁 ごほうび付き'),
+                  subtitle: const Text('難易度とは別に設定できます'),
+                  value: _reward,
+                  onChanged: (v) => setState(() => _reward = v),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: _saving ? null : _save,
+                  child: Text(
+                    _saving
+                        ? '保存中…'
+                        : widget.todo == null
+                        ? 'タスクを追加'
+                        : '変更を保存',
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
